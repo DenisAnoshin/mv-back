@@ -1,0 +1,27 @@
+# Node.js
+node_modules/
+
+# npm logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# dotenv environment variables file
+.env
+.env.test
+.env.production
+
+# parcel-bundler cache
+.cache/
+
+# VS Code settings
+.vscode/
+
+# WebStorm
+.idea/
+
+# Mac system files
+.DS_Store
+
+# Linux system files
+*~
