@@ -1,5 +1,5 @@
 import { DataTypes, Sequelize } from 'sequelize';
-import { DB, USER, PASSWORD, HOST, dialect as _dialect } from '../config/db.config.js';
+import { DB, USER, PASSWORD, HOST, dialect as _dialect, PORT } from '../config/db.config.js';
 import Group from './group.model.js';
 import Like from './like.model.js';
 import Message from './message.model.js';
@@ -10,7 +10,7 @@ const sequelize = new Sequelize(DB, USER, PASSWORD, {
     host: HOST,
     dialect: _dialect,
     //operatorsAliases: false,
-    port: 5433,
+    port: PORT,
     sync: true,
     define: {
         underscored: true,
