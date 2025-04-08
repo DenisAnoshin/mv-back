@@ -37,7 +37,7 @@ jobs:
             echo "DB_PASSWORD=root" >> .env
             echo "DB_NAME=chat" >> .env
             echo "DB_DIALECT=postgres" >> .env
-            echo "DB_PORT=5433" >> .env
+            echo "DB_PORT=5432" >> .env
 
             npm install
 
