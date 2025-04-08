@@ -42,7 +42,7 @@ export const verifyTokenSocket = async (socket, next) => {
         const user = await db.User.findOne({ where: { username: decoded.username } });
         
         if (!user) {
-            return next(new Error('User not found ' + token));
+            return next(new Error('User not found ' + decoded.username ));
         }
 
         socket.user = user;
