@@ -30,13 +30,13 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no root@YOUR_SERVER_IP << 'EOF'
             cat <<EOT > /chat/.env
-DB_HOST=localhost
-DB_USER=listik
-DB_PASSWORD=root
-DB_NAME=chat
-DB_DIALECT=postgres
-DB_PORT=5433
-EOT
+            DB_HOST=localhost
+            DB_USER=listik
+            DB_PASSWORD=root
+            DB_NAME=chat
+            DB_DIALECT=postgres
+            DB_PORT=5433
+            EOT
 
             cd /chat
             npm install
