@@ -28,18 +28,17 @@ jobs:
 
       - name: Set up environment and start app
         run: |
-          ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} << 'EOF'
-            # Create .env file
-            cat <<EOT > /chat/.env
-            DB_HOST=localhost
-            DB_USER=listik
-            DB_PASSWORD=root
-            DB_NAME=chat
-            DB_DIALECT=postgres
-            DB_PORT=5433
-            EOT
-
+          ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} << EOF
             cd /chat
+
+            # Write .env
+            echo "DB_HOST=localhost" > .env
+            echo "DB_USER=listik" >> .env
+            echo "DB_PASSWORD=root" >> .env
+            echo "DB_NAME=chat" >> .env
+            echo "DB_DIALECT=postgres" >> .env
+            echo "DB_PORT=5433" >> .env
+
             npm install
 
             # Start with pm2
