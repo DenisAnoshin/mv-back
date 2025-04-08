@@ -36,13 +36,13 @@ export const verifyTokenSocket = async (socket, next) => {
         }
 
         // Удаляем 'Bearer ', если он есть
-        const tokenWithoutBearer = token.replace(/^Bearer\s+/i, '');
+       // const tokenWithoutBearer = token.replace(/^Bearer\s+/i, '');
 
-        const decoded = jwt.verify(tokenWithoutBearer, 'groupChat');
+        const decoded = jwt.verify(token, 'groupChat');
         const user = await db.User.findOne({ where: { username: decoded.username } });
         
         if (!user) {
-            return next(new Error('User not found'));
+            return next(new Error('User not found ' + token));
         }
 
         socket.user = user;
