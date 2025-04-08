@@ -43,6 +43,6 @@ jobs:
 
             # Start with pm2
             pm2 stop chat || true
-            pm2 start "npm run start" --name chat --interpreter bash
+            pm2 start npm --name chat -- run start
             pm2 save
           EOF
