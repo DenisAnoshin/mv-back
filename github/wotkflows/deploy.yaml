@@ -1,0 +1,48 @@
+name: Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.4
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Copy files to server
+        run: |
+          ssh -o StrictHostKeyChecking=no root@YOUR_SERVER_IP << 'EOF'
+            rm -rf /chat/*
+          EOF
+
+          scp -r . root@YOUR_SERVER_IP:/chat/
+
+      - name: Create .env file and start Node.js app
+        run: |
+          ssh -o StrictHostKeyChecking=no root@YOUR_SERVER_IP << 'EOF'
+            cat <<EOT > /chat/.env
+DB_HOST=localhost
+DB_USER=listik
+DB_PASSWORD=root
+DB_NAME=chat
+DB_DIALECT=postgres
+DB_PORT=5433
+EOT
+
+            cd /chat
+            npm install
+
+            # Запуск приложения в фоне через pm2
+            pm2 stop chat || true
+            pm2 start "npm run start" --name chat --interpreter bash
+            pm2 save
+          EOF
