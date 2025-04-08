@@ -5,6 +5,7 @@ import groupRoutes from './src/routes/groutpRoutes.js';
 import messageRoutes from './src/routes/messageRoute.js';
 import * as messageService from './src/services/messageService.js';
 import { verifyTokenSocket } from './src/middleware/authMiddleware.js';
+import { getCurrentDateTime } from './src/common/helpers.js';
 
 import { createServer } from 'http';
 import { Server } from 'socket.io'; 
@@ -48,12 +49,12 @@ io.on('connection', (socket) => {
 
       await messageService.createMessage(data.group_id, socket.user.id, data.message);
 
-      const currentDate = new Date();
+      
 
       socket.broadcast.emit('new_message', {
         message: data.message,
         username: socket.user.username,
-        created_at:currentDate.toString(),
+        created_at: getCurrentDateTime(),
         group_id: data.group_id
       });
       console.log('Сообщение отправлено:', data);
