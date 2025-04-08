@@ -26,9 +26,10 @@ export const verifyToken = async(req, res, next) => {
 
 export const verifyTokenSocket = async (socket, next) => {
     try {
+        const token = socket.handshake.query.token;
+        console.log(token);
         // Получаем токен из заголовков (обратите внимание на регистр 'Authorization')
-        const token = socket.handshake.headers.authorization || 
-                     socket.handshake.headers.Authorization;
+       // const token = socket.handshake.headers.authorization ||  socket.handshake.headers.Authorization;
 
         if (!token) {
             return next(new Error("Требуется авторизация"));
