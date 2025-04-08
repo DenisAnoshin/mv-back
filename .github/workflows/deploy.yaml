@@ -26,7 +26,7 @@ jobs:
 
           scp -r . root@${{ secrets.SERVER_IP }}:/chat/
 
-      - name: Set up environment and start app
+      - name: Start app
         run: |
           ssh -o StrictHostKeyChecking=no root@${{ secrets.SERVER_IP }} << EOF
             cd /chat

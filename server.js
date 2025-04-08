@@ -34,6 +34,9 @@ const io = new Server(httpServer, {
   }
 });
 
+io.use(verifyTokenSocket)
+
+
 // Подключение WebSocket
 io.on('connection', (socket) => {
   console.log('Новое подключение:', socket.user.id);
@@ -60,7 +63,6 @@ io.on('connection', (socket) => {
   });
 });
 
-io.use(verifyTokenSocket)
 
 app.use(bodyParser.json());
 
