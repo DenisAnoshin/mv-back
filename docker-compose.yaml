@@ -5,10 +5,16 @@ services:
     build: .
     container_name: nestjs_api
     restart: always
-    env_file: .env  # Указываем, что используем .env файл в корне проекта
+    env_file: .env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: listik
+      DB_PASSWORD: root
+      DB_NAME: multivision
     ports:
-      - "3000:3000"  # внешний:внутренний порт
-      - "3001:3001"  # внешний:внутренний порт
+      - "3000:3000"
+      - "3001:3001"
     depends_on:
       - db
     networks:
@@ -16,18 +22,27 @@ services:
 
   db:
     image: postgres:15
-    container_name: postgres_db
-    restart: always
-    env_file: .env  # Это также .env из корня проекта, для PostgreSQL
+    environment:
+      environment:
+      POSTGRES_USER: listik
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: multivision
+    env_file: .env
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"  # для подключения через pgAdmin
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U listik -d multivision"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
     networks:
       - app-network
 
+
 volumes:
-  pgdata:
+  postgres_data:
 
 networks:
   app-network:
