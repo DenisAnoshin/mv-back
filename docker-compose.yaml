@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  api:
+    build: .
+    container_name: nestjs_api
+    restart: always
+    env_file: .env  # Указываем, что используем .env файл в корне проекта
+    ports:
+      - "3000:3000"  # внешний:внутренний порт
+    depends_on:
+      - db
+    networks:
+      - app-network
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    restart: always
+    env_file: .env  # Это также .env из корня проекта, для PostgreSQL
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"  # для подключения через pgAdmin
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+
+networks:
+  app-network:
+    driver: bridge
