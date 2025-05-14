@@ -19,9 +19,10 @@ export class SendMessageHandler {
       text: data.text,
     });
 
-console.log(message.sender.username)
+console.log(message.sender.username + ' ' + data.groupId.toString())
 
-    client.to(`group_${data.groupId}`).emit('group_message', {
+
+    client.to(data.groupId.toString()).emit('new_message', {
       text: message.text,
       createdAt: message.createdAt,
       username: message.sender.username,

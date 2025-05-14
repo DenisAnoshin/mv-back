@@ -40,6 +40,18 @@ services:
     networks:
       - app-network
 
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com  # Логин для входа в PgAdmin
+      PGADMIN_DEFAULT_PASSWORD: admin         # Пароль для входа в PgAdmin
+    ports:
+      - "5050:80"  # PgAdmin будет доступен на http://localhost:5050
+    depends_on:
+      - db
+    networks:
+      - app-network
+
 
 volumes:
   postgres_data:

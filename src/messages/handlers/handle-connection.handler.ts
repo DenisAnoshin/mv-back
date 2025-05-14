@@ -15,19 +15,15 @@ export class HandleConnectionHandler {
 
   async handle(client: Socket): Promise<number | null> {
     try {
-      console.log(client.handshake.query);
       const token = client.handshake.query.Authorization?.toString().split(' ')[1];
-      //console.log(client.handshake.query.Authorization)
       const payload = this.jwtService.verify(token, { secret: 'supersecretjwt' });
-
-     client.data.userId = payload.sub;
+      client.data.userId = payload.sub;
       this.clients.set(payload.sub, client);
 
-
-      const userGroups = await this.messagesService.getUserGroups(payload.sub);
-     userGroups.forEach(groupId => {
-       client.join(`group_${groupId.id}`);
-      });
+    //   const userGroups = await this.messagesService.getUserGroups(payload.sub);
+    //  userGroups.forEach(groupId => {
+    //    client.join(`group_${groupId.id}`);
+    //   });
 
       console.log(client.data.userId)
 
