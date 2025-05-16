@@ -1,22 +1,13 @@
-# Dockerfile.dev
+# Dockerfile (production)
 FROM node:20-alpine
-
-# Устанавливаем Nest CLI (для dev-среды)
-RUN npm install -g @nestjs/cli
 
 WORKDIR /app
 
-# Только package.json и lock-файл сначала
 COPY package*.json ./
+RUN npm install --production
 
-# Устанавливаем зависимости
-RUN npm install
-
-# Копируем весь исходный код
 COPY . .
+RUN npm run build
 
-# Открываем порт
 EXPOSE 3000
-
-# Запускаем в режиме разработки
-CMD ["npm", "run", "start:dev"]
+CMD ["node", "dist/main"]

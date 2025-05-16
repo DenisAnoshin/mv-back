@@ -10,17 +10,18 @@ export class OpenrouterService {
 
   async getAIResponse(messages: Array<{ role: string; content: string }>): Promise<string> {
     try {
+      // 3ad914d8b04a7dd95d145c9a72998791c133694439047f088c66119c2d99c45e
+      console.log(process.env.OPENROUTER_API_KEY)
       const response = await this.httpService.axiosRef.post(
-        'https://openrouter.ai/api/v1/chat/completions',
+        'https://api.openai.com/v1/chat/completions',
         {
-          model: 'anthropic/claude-3-haiku',
+          model: 'gpt-4.1-nano',
           messages,
         },
         {
           headers: {
-            'Authorization': `Bearer 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`,
-            'HTTP-Referer': 'http://37.220.82.230',
-            'X-Title': 'openmv',
+            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Content-Type': 'application/json',
           },
         }
       );
