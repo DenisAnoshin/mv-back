@@ -20,12 +20,14 @@ export class HandleConnectionHandler {
       client.data.userId = payload.sub;
       this.clients.set(payload.sub, client);
 
-    //   const userGroups = await this.messagesService.getUserGroups(payload.sub);
-    //  userGroups.forEach(groupId => {
-    //    client.join(`group_${groupId.id}`);
-    //   });
+      const userGroups = await this.messagesService.getUserGroups(payload.sub);
 
-      console.log(client.data.userId)
+      userGroups.forEach(groupId => {
+       client.join(`group_${groupId.id}`);
+       console.log(`Client ${payload.sub} joined ${groupId.id}`);
+      });
+
+      console.log(`Connected ${client.data.userId}`)
 
 
     } catch (e) {

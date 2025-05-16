@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { User } from './users.entity';
 
 @Injectable()
@@ -10,16 +10,19 @@ export class UsersService {
     private userRepository: Repository<User>,
   ) {}
 
-  findAll(): Promise<User[]> {
+  findAll(currentUserId: number): Promise<User[]> {
     return this.userRepository.find({
-      select: ['id', 'username'], // Не отдаём password
+      select: ['id', 'username'],
+      where: {
+        id: Not(currentUserId),
+      },
     });
   }
 
   findOne(id: number): Promise<User | null> {
     return this.userRepository.findOne({
       where: { id },
-      select: ['id', 'username'], // Без password
+      select: ['id', 'username'], 
     });
   }
 

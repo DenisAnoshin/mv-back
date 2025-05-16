@@ -9,6 +9,9 @@ import { Message } from 'src/messages/messages.entity';
 import { HandleConnectionHandler } from 'src/messages/handlers/handle-connection.handler';
 import { MessagesService } from 'src/messages/messages.service';
 import { JwtModule } from '@nestjs/jwt';
+import { HttpModule } from '@nestjs/axios';
+import { OpenrouterModule } from 'src/openrouter/openrouter.module';
+import { MessagesModule } from 'src/messages/messages.module';
 
 @Module({
   imports: [
@@ -17,9 +20,13 @@ import { JwtModule } from '@nestjs/jwt';
       secret: 'supersecretjwt', // Укажи свой секрет
       signOptions: { expiresIn: '60s' }, // Пример параметров для JWT
     }),
+    MessagesModule,
+    OpenrouterModule
 ],
   controllers: [GroupsController],
-  providers: [GroupsService, HandleConnectionHandler, MessagesService],
+  providers: [
+    GroupsService,
+  ],
   exports: [GroupsService],
 })
 export class GroupsModule {}

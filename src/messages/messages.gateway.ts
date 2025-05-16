@@ -12,6 +12,7 @@ import { HandleConnectionHandler } from './handlers/handle-connection.handler';
 import { SendMessageHandler } from './handlers/send-message.handler';
 import { MessagesService } from './messages.service';
 
+
 @WebSocketGateway(3001, {
   cors: {
     origin: '*', // или конкретные
@@ -23,7 +24,6 @@ import { MessagesService } from './messages.service';
 export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly connectionHandler: HandleConnectionHandler,
-    private readonly sendMessageHandler: SendMessageHandler,
     private readonly messagesService: MessagesService
   ) {}
 
@@ -35,7 +35,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     const userId = client.data.userId;
     if (userId) {
       this.connectionHandler.removeClient(userId);
-      console.log(`Client ${userId} disconnected`);
+      console.log(`Disconnected ${userId}`);
     }
   }
 
@@ -64,8 +64,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
       text: data.text,
     });
 
-console.log(message.sender.username + ' ' + data.groupId.toString())
-
+    console.log({
+      text: message.text,
+      createdAt: message.createdAt,
+      username: message.sender.username,
+      groupId: data.groupId
+    })
 
     client.to('group_' + data.groupId.toString()).emit('new_message', {
       text: message.text,
@@ -76,4 +80,6 @@ console.log(message.sender.username + ' ' + data.groupId.toString())
 
     return message;
   }
+
+  
 }

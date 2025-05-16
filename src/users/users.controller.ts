@@ -5,6 +5,7 @@ import {
     Delete,
     ParseIntPipe,
     UseGuards,
+    Request,
   } from '@nestjs/common';
   import { UsersService } from './users.service';
   import { AuthGuard } from '@nestjs/passport';
@@ -15,8 +16,8 @@ import {
     constructor(private readonly usersService: UsersService) {}
   
     @Get()
-    findAll() {
-      return this.usersService.findAll();
+    findAll(@Request() req) {
+      return this.usersService.findAll(req.user.userId);
     }
   
     @Get(':id')

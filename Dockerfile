@@ -1,23 +1,22 @@
-# Используем официальный Node.js образ
+# Dockerfile.dev
 FROM node:20-alpine
 
-# Устанавливаем глобально NestJS CLI (опционально)
+# Устанавливаем Nest CLI (для dev-среды)
 RUN npm install -g @nestjs/cli
 
-# Рабочая директория для приложения
 WORKDIR /app
 
-# Копируем файлы проекта в контейнер
-COPY . .
+# Только package.json и lock-файл сначала
+COPY package*.json ./
 
-# Устанавливаем все зависимости, включая TypeORM
+# Устанавливаем зависимости
 RUN npm install
 
-# Собираем приложение
-RUN npm run build
+# Копируем весь исходный код
+COPY . .
 
-# Открываем порт, на котором будет работать сервер
+# Открываем порт
 EXPOSE 3000
 
-# Команда для запуска Nest.js приложения
-CMD ["npm", "run", "start:prod"]
+# Запускаем в режиме разработки
+CMD ["npm", "run", "start:dev"]

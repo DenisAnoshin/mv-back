@@ -16,12 +16,15 @@ import { UsersGroups } from 'src/users_groups/users_groups.entity';
   
     @Column({ nullable: true })
     text: string;
+
+    @Column({ default: false })
+    ai: boolean;
+
+    @Column({ default: false })
+    aiAnswer: boolean;
   
-    @ManyToOne(() => User, (user) => user.sentMessages, { nullable: false })
+    @ManyToOne(() => User, (user) => user.sentMessages, { nullable: true })
     sender: User;
-  
-    @ManyToOne(() => User, (user) => user.receivedMessages, { nullable: true })
-    recipient: User;
   
     @ManyToOne(() => Group, (group) => group.messages, { nullable: true })
     group: Group;

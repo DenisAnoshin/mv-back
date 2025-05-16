@@ -13,11 +13,16 @@ import {
   import { CreateGroupDto } from '../common/dto/create-group.dto';
   import { AuthGuard } from '@nestjs/passport';
 import { Message } from 'src/messages/messages.entity';
+import { MessagesService } from 'src/messages/messages.service';
   
   @UseGuards(AuthGuard('jwt'))
   @Controller('groups')
   export class GroupsController {
-    constructor(private readonly groupsService: GroupsService) {}
+    constructor(
+      private readonly groupsService: GroupsService,
+      private readonly messagesService: MessagesService
+
+    ) {}
   
     @Post()
     create(@Body() dto: CreateGroupDto, @Request() req) {
@@ -44,13 +49,17 @@ import { Message } from 'src/messages/messages.entity';
       return this.groupsService.findGroupsForUser(req.user.userId);
     }
 
-    @Get(':id/messages')
-    async getLastMessages(
-      @Param('id', ParseIntPipe) id: number,
-      @Request() req: any
-    ): Promise<Message[]> {
-      const messages = await this.groupsService.getLastMessagesInGroup(id, req.user.userId);
-      return messages;
+    @Get(':id/info')
+    getGroupInfo(@Param('id', ParseIntPipe) id: number, @Request() req) {
+      return this.groupsService.getGroupInfo(id, req.user.userId);
     }
+
+    @Post(':id/leave')
+    leaveGroup(@Param('id', ParseIntPipe) id: number, @Request() req) {
+      return this.groupsService.leaveGroup(id, req.user.userId);
+    }
+
+    
+
   }
   

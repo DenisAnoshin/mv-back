@@ -18,9 +18,6 @@ export class User {
   @OneToMany(() => Message, (msg) => msg.sender)
   sentMessages: Message[];
 
-  @OneToMany(() => Message, (msg) => msg.recipient)
-  receivedMessages: Message[];
-
   @OneToMany(() => UsersGroups, (userGroup) => userGroup.group)
   usersGroups: UsersGroups[]; 
 }

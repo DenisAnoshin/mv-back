@@ -23,6 +23,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@nestjs/axios": "^4.0.0",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.0",
@@ -31,8 +32,10 @@
     "@nestjs/platform-express": "^11.1.0",
     "@nestjs/platform-socket.io": "^11.1.0",
     "@nestjs/platform-ws": "^11.1.0",
+    "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "class-validator": "^0.14.2",
+    "openai": "^4.98.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",

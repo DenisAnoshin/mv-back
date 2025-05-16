@@ -12,10 +12,7 @@ services:
       DB_USERNAME: listik
       DB_PASSWORD: root
       DB_NAME: multivision
-    volumes:
-      - .:/app               # 👈 Монтируем локальный проект
-      - /app/node_modules    # 👈 Исключаем node_modules контейнера
-    command: npm run start:dev
+    command: npm run start:prod
     ports:
       - "3000:3000"
       - "3001:3001"
