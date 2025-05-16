@@ -18,7 +18,7 @@ export class OpenrouterService {
         },
         {
           headers: {
-            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Authorization': `Bearer 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`,
             'HTTP-Referer': 'http://37.220.82.230',
             'X-Title': 'openmv',
           },
