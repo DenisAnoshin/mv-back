@@ -12,6 +12,7 @@ import { AuthModule } from 'src/auth/auth.module';
   ],
   providers: [
     WebsocketGateway,
+    
     WebsocketService,
   ],
   exports: [WebsocketGateway, WebsocketService],
