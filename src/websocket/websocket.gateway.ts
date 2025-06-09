@@ -15,6 +15,7 @@ import { AuthService } from 'src/auth/auth.service';
 import { WebsocketService } from './websocket.service';
 
 @WebSocketGateway(3001, {
+  namespace: '/ws',
   cors: {
     origin: '*',
     methods: '*',
