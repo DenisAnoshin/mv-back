@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Group } from './groups.entity';
 import { Repository } from 'typeorm';
@@ -6,8 +6,9 @@ import { CreateGroupDto } from '../common/dto/create-group.dto';
 import { UsersGroups } from '../users_groups/users_groups.entity';
 import { User } from '../users/users.entity';
 import { Message } from 'src/messages/messages.entity';
-import { MessagesGateway } from 'src/messages/messages.gateway';
-import { HandleConnectionHandler } from 'src/messages/handlers/handle-connection.handler';
+import { WebsocketService } from 'src/websocket/websocket.service';
+//import { MessagesGateway } from 'src/messages/messages.gateway';
+//import { HandleConnectionHandler } from 'src/messages/handlers/handle-connection.handler';
 
 @Injectable()
 export class GroupsService {
@@ -18,14 +19,13 @@ export class GroupsService {
     private usersGroupsRepo: Repository<UsersGroups>,
     @InjectRepository(Message)
     private messagesRepo: Repository<Message>,
-    private readonly connectionHandler: HandleConnectionHandler,
+    private readonly websocketService: WebsocketService
+    
   ) {}
 
   async create(dto: CreateGroupDto, adminId: number) {
     const admin = { id: adminId } as User;
     const userIds = [...new Set([...dto.userIds, adminId])];
-
-    console.log(userIds)
 
     const group = this.groupsRepo.create({
       name: dto.name,
@@ -44,15 +44,13 @@ export class GroupsService {
     await this.usersGroupsRepo.save(usersGroups);
 
     for (const userId of userIds) {
-      const client = this.connectionHandler.getClient(userId);
-      console.log(userId)
-
-      if (client) {
-        client.join(`group_${savedGroup.id}`);
-        client.emit('new_group');
-        console.log(`Join ${savedGroup.id}`)
-      }
+      this.websocketService.subscribeUserToGroup(userId, savedGroup.id);
     }
+
+    this.websocketService.emitToRoom(`group_${savedGroup.id}`, 'new_group', {
+      id: savedGroup.id,
+      name: savedGroup.name,
+    })
   
     return savedGroup;
   }
@@ -78,40 +76,46 @@ export class GroupsService {
     await this.groupsRepo.delete(id);
   }
 
-  async findGroupsForUser(userId: number): Promise<any[]> {
-    const userGroups = await this.usersGroupsRepo.find({
-      where: { user: { id: userId } },
-      relations: ['group'],
+async findGroupsForUser(userId: number): Promise<any[]> {
+  const userGroups = await this.usersGroupsRepo.find({
+    where: { user: { id: userId } },
+    relations: ['group'],
+  });
+
+  const groups = await Promise.all(userGroups.map(async (ug) => {
+    const group = ug.group;
+
+    const messages = await this.messagesRepo.find({
+      where: { group: { id: group.id }, ai: false },
+      order: { createdAt: 'ASC' },
+      relations: ['sender'],
     });
-  
-    const groups = await Promise.all(userGroups.map(async (ug) => {
-      const group = ug.group;
-  
-      // Получение последнего сообщения в группе
-      const lastMessage = await this.messagesRepo.findOne({
-        where: { group: { id: group.id }, ai: false },
-        order: { createdAt: 'DESC' },
-        relations: ['sender'],
-      });
-  
-      return {
-        id: group.id,
-        name: group.name,
-        createdAt: group.createdAt,
-        sortDate: lastMessage?.createdAt ?? group.createdAt, // 👈 ключ для сортировки
-        messages: lastMessage ? {
-          text: lastMessage.text,
-          username: lastMessage.sender.username,
-          createdAt: lastMessage.createdAt,
-        } : null,
-      };
-    }));
-  
-    // Сортировка: последние вверху
-    groups.sort((a, b) => b.sortDate.getTime() - a.sortDate.getTime());
-  
-    return groups;
-  }
+
+    const usersCount = await this.usersGroupsRepo.count({
+      where: { group: { id: group.id } },
+    });
+
+    return {
+      id: group.id,
+      name: group.name,
+      createdAt: group.createdAt,
+      sortDate: messages.length > 0 ? messages[messages.length - 1].createdAt : group.createdAt,
+      messages: messages.map(m => ({
+        id: m.id,
+        text: m.text,
+        username: m.sender.username,
+        createdAt: m.createdAt,
+        me: m.sender?.id === userId,
+      })),
+      messagesCount: messages.length,
+      usersCount: usersCount, 
+    };
+  }));
+
+  return groups;
+}
+
+
   
   
   async getLastMessagesInGroup(groupId: number, userId: number): Promise<any[]> {
@@ -203,24 +207,121 @@ export class GroupsService {
     const isAdmin = group.admin.id === userId;
   
     if (isAdmin) {
-      // Удалить все сообщения в группе
       await this.messagesRepo.delete({ group: { id: groupId } });
-  
-      // Удалить все связи UsersGroups
       await this.usersGroupsRepo.delete({ group: { id: groupId } });
-  
-      // Удалить саму группу
       await this.groupsRepo.delete({ id: groupId });
-  
+      this.websocketService.emitToRoom(`group_${groupId}`, 'delete_group', { id: groupId})
       return { deletedGroup: true };
     } else {
-      // Просто удалить пользователя из группы
       await this.usersGroupsRepo.delete({ id: userGroup.id });
-  
       return { deletedGroup: false };
     }
   }
-  
+
+
+
+ async deleteUserFromGroup(
+  groupId: number,
+  userId: number,
+  senderId: number
+): Promise<{ deletedGroup: boolean }> {
+
+  const group = await this.groupsRepo.findOne({
+    where: { id: groupId },
+    relations: ['admin'],
+  });
+  if (!group) throw new NotFoundException('Группа не найдена');
+
+
+  if (group.admin.id !== senderId) {
+    throw new ForbiddenException('Только админ может удалять участников');
+  }
+
+  const userGroup = await this.usersGroupsRepo.findOne({
+    where: {
+      group: { id: groupId },
+      user: { id: userId },
+    },
+    relations: ['user', 'group'],
+  });
+  if (!userGroup) throw new NotFoundException('Пользователь не состоит в группе');
+
+  await this.usersGroupsRepo.delete({ group: { id: groupId }, user: { id: userId } });
+
+  this.websocketService.emitToUser(userId, 'delete_group', { id: groupId})
+
+  return { deletedGroup: false };
+}
+
+  async addUsersToGroup(
+  groupId: number,
+  userIds: number[],
+  senderId: number,
+): Promise<{ added: number[] }> {
+
+  const group = await this.groupsRepo.findOne({
+    where: { id: groupId },
+    relations: ['admin'],
+  });
+  if (!group) throw new NotFoundException('Группа не найдена');
+  if (group.admin.id !== senderId) {
+    throw new ForbiddenException('Только админ может добавлять участников');
+  }
+
+  const existingUserGroups = await this.usersGroupsRepo.find({
+    where: { group: { id: groupId } },
+    relations: ['user'],
+  });
+  const existingUserIds = new Set(existingUserGroups.map(ug => ug.user.id));
+
+  const toAdd = userIds.filter(id => !existingUserIds.has(id));
+  if (toAdd.length === 0) return { added: [] };
+
+  const newUsersGroups = toAdd.map(userId => this.usersGroupsRepo.create({
+    group: group,
+    user: { id: userId } as User,
+  }));
+
+  await this.usersGroupsRepo.save(newUsersGroups);
+
+  const messages = await this.messagesRepo.find({
+    where: { group: { id: groupId }, ai: false },
+    order: { createdAt: 'ASC' },
+    relations: ['sender'],
+  });
+
+  const messagesForEmit = messages.map(m => ({
+    id: m.id,
+    text: m.text,
+    username: m.sender.username,
+    createdAt: m.createdAt,
+  }));
+
+  const usersCount = await this.usersGroupsRepo.count({
+    where: { group: { id: groupId } },
+  });
+
+  toAdd.forEach(userId => {
+    this.websocketService.subscribeUserToGroup(userId, groupId);
+
+    this.websocketService.emitToRoomExceptUser(
+      `group_${groupId}`,
+      'new_group',
+      {
+        id: groupId,
+        name: group.name,
+        messages: messagesForEmit,
+        messagesCount: messagesForEmit.length,
+        usersCount: usersCount,
+      },
+      senderId
+    );
+  });
+
+  return { added: toAdd };
+}
+
+
   
   
 

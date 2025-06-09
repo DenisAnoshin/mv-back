@@ -43,4 +43,14 @@ export class AuthService {
     await this.userRepository.save(user);
     return this.login(user);
   }
+
+  async validateToken(token: string): Promise<any> {
+    try {
+      const payload = this.jwtService.verify(token);
+      return payload;
+    } catch (e) {
+      throw new UnauthorizedException('Invalid token');
+    }
+  }
+
 }

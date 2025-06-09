@@ -5,13 +5,12 @@ services:
     build: .
     container_name: nestjs_api
     restart: always
-    env_file: .env
     environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_USERNAME: listik
-      DB_PASSWORD: root
-      DB_NAME: multivision
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
     command: npm run start:prod
     ports:
       - "3000:3000"
@@ -24,17 +23,15 @@ services:
   db:
     image: postgres:15
     environment:
-      environment:
-      POSTGRES_USER: listik
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: multivision
-    env_file: .env
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U listik -d multivision"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 3
@@ -44,15 +41,14 @@ services:
   pgadmin:
     image: dpage/pgadmin4
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@admin.com  # Логин для входа в PgAdmin
-      PGADMIN_DEFAULT_PASSWORD: admin         # Пароль для входа в PgAdmin
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "5050:80"  # PgAdmin будет доступен на http://localhost:5050
+      - "5050:80"
     depends_on:
       - db
     networks:
       - app-network
-
 
 volumes:
   postgres_data:

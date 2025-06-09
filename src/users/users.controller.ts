@@ -19,6 +19,10 @@ import {
     findAll(@Request() req) {
       return this.usersService.findAll(req.user.userId);
     }
+    @Get('/ai/:id/profile')
+    getProfile(@Param('id', ParseIntPipe) id: number) {
+      return this.usersService.getProfile(id);
+    }
   
     @Get(':id')
     findOne(@Param('id', ParseIntPipe) id: number) {
@@ -29,5 +33,8 @@ import {
     remove(@Param('id', ParseIntPipe) id: number) {
       return this.usersService.remove(id);
     }
+
+
+    
   }
   

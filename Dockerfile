@@ -2,7 +2,7 @@
 FROM node:20-alpine
 
 # Устанавливаем Nest CLI (для компиляции, если необходимо)
-RUN npm install -g @nestjs/cli
+#RUN npm install -g @nestjs/cli
 
 WORKDIR /app
 

@@ -14,6 +14,7 @@ import { UsersGroups } from './users_groups/users_groups.entity';
 import { Message } from './messages/messages.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
+import { WebsocketModule } from './websocket/websocket.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { ConfigModule } from '@nestjs/config';
     GroupsModule,
     UsersGroupsModule,
     MessagesModule,
+    WebsocketModule
   ],
   controllers: [AppController],
   providers: [AppService],

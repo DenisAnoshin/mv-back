@@ -7,12 +7,13 @@ import {
     Request,
     Get,
     Param,
-    ParseIntPipe
+    ParseIntPipe,
+    Delete
   } from '@nestjs/common';
   import { MessagesService } from './messages.service';
   import { AuthGuard } from '@nestjs/passport';
 import { SendMessageDto } from 'src/common/dto/send-message.dto';
-import { Message } from './messages.entity';
+
   
   @UseGuards(AuthGuard('jwt'))
   @Controller('messages')
@@ -20,7 +21,18 @@ import { Message } from './messages.entity';
     constructor(private readonly messagesService: MessagesService) {}
   
     @Post(':id')
-    sendMessageAi(
+    async sendMessage(
+      @Param('id') id: number,
+      @Body() dto: SendMessageDto,
+      @Request() req
+    ) {
+      const res = await this.messagesService.sendMessageWithEmit({...dto, groupId: id, senderId: req.user.userId});
+      console.log(res);
+      return res;
+    }
+
+    @Post('/ai/:id')
+    async sendMessageAi(
       @Param('id') id: number,
       @Body() dto: SendMessageDto,
       @Request() req
@@ -38,6 +50,12 @@ import { Message } from './messages.entity';
     }
 
 
+    @Get('/ai/profile')
+    async generateUserAiProfile(@Request() req): Promise<any> {
+      const profile = await this.messagesService.generateUserAiProfile(req.user.userId);
+      return profile;
+    }
+
     @Get('/ai/:id')
     async getLastMessagesAi(
       @Param('id', ParseIntPipe) id: number,
@@ -45,6 +63,25 @@ import { Message } from './messages.entity';
     ): Promise<any> {
       const messages = await this.messagesService.getMessagesForGroupAi(id, req.user.userId);
       return messages;
+    }
+
+
+    @Get('/ai/:id/summary')
+    async getSummaryMessages(
+      @Param('id', ParseIntPipe) id: number,
+      @Request() req: any
+    ): Promise<any[]> {
+      const messages = await this.messagesService.getSummaryMessagesForGroup(id, req.user.userId)
+      return messages;
+    }
+
+    @Delete(':id')
+    async deleteMessage(
+      @Param('id', ParseIntPipe) id: number,
+      @Request() req: any
+    ): Promise<any> {
+      const res = await this.messagesService.deleteMessageById(id, req.user.userId);
+      return res;
     }
   
   }

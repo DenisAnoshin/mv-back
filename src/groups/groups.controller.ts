@@ -59,6 +59,18 @@ import { MessagesService } from 'src/messages/messages.service';
       return this.groupsService.leaveGroup(id, req.user.userId);
     }
 
+
+    @Post(':id/delete-user')
+    deleteUserFromGroup(@Param('id', ParseIntPipe) id: number, @Body() dto: {userId: number}, @Request() req) {
+      return this.groupsService.deleteUserFromGroup(id, dto.userId, req.user.userId);
+    }
+
+
+    @Post(':id/add-users')
+    addUsers(@Param('id', ParseIntPipe) id: number, @Body() dto: {users: number[]}, @Request() req) {
+      return this.groupsService.addUsersToGroup(id, dto.users, req.user.userId);
+    }
+
     
 
   }
