@@ -11,7 +11,7 @@ export class OpenAIService {
     });
   }
 
-  async generateResponse(prompt: string, model: string = 'gpt-4.1-nano'): Promise<string> {
+  async generateResponse(prompt: string, model: string = 'gpt-4.1-mini'): Promise<string> {
     try {
       const response = await this.client.chat.completions.create({
         model,
