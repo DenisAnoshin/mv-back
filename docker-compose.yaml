@@ -5,6 +5,8 @@ services:
     build: .
     container_name: nestjs_api
     restart: always
+    env_file:
+      - .env
     environment:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
