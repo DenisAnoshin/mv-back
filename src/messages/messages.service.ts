@@ -6,8 +6,9 @@ import { SendMessageDto } from '../common/dto/send-message.dto';
 import { User } from '../users/users.entity';
 import { Group } from '../groups/groups.entity';
 import { UsersGroups } from 'src/users_groups/users_groups.entity';
-import { OpenrouterService } from 'src/openrouter/openrouter.service';
+//import { OpenrouterService } from 'src/openrouter/openrouter.service';
 import { WebsocketService } from 'src/websocket/websocket.service';
+import { OpenAIService } from 'src/openai/openai.service';
 //import { MessagesGateway } from './messages.gateway';
 //import { HandleConnectionHandler } from './handlers/handle-connection.handler';
 //import { WebsocketService } from 'src/websocket/websocket.gateway';
@@ -27,7 +28,7 @@ export class MessagesService {
     @InjectRepository(UsersGroups)
     private readonly groupUserRepository: Repository<UsersGroups>,
 
-    private readonly openrouterService: OpenrouterService,
+    private readonly openAIService: OpenAIService,
 
     private readonly websocketService: WebsocketService
   ) {}
@@ -212,12 +213,7 @@ export class MessagesService {
   
       await this.messageRepo.save(message)
 
-      const aiResponse = await this.openrouterService.getAIResponse([
-        {
-          role: 'user',
-          content,
-        },
-      ]);
+      const aiResponse = await this.openAIService.generateResponse(content);
 
       const messageAi = this.messageRepo.create({
         text: aiResponse,
@@ -254,8 +250,10 @@ export class MessagesService {
 
     const content = `
         
-        Ниже представленна история переписки из чата. Твоя задача провести анализ этих сообщений, и дать сводку. 
+        Ниже представленна история переписки из чата. Твоя задача провести анализ этих сообщений, и дать краткую сводку. 
         Постарайся выделить ключевые и важные сообщения и сделать на них акцент.
+
+        Используй переносы строк и красивое форматирование текста для более удобного чтения.
         
         Вот история переписки чата.
         ${contextDialog}
@@ -265,56 +263,7 @@ export class MessagesService {
     
     try{
 
-      // const aiResponse = await this.openrouterService.getAIResponse([
-      //   {
-      //     role: 'user',
-      //     content,
-      //   },
-      // ]);
-
-      
-      const aiResponse = `Анализ переписки показывает, что это группа друзей активно обсуждает подготовку к совместной поездке в Грузию, запланированную на конец июня — начало июля 2025 года. Вот основные моменты и ключевые темы переписки:
-
-1. **Планирование дат и маршрута**:
-   - Все участники согласны, что оптимальное время — с 20 июня по 5 июля.
-   - Рассматриваются города: Тбилиси, Казбеги, Батуми, регион Кахетия, а также идея посетить винодельни и попробовать местную кухню (хинкали, хачапури, чурчхела).
-
-2. **Бюджет и расходы**:
-   - Средняя стоимость ночевки — от 100$ до 150$ за ночь на троих.
-   - Общий бюджет на человека — примерно 500-700$, обсуждается вариативность в зависимости от жилья и активности.
-   - Расходы на питание — около 20-25$ в день.
-   - Проговаривался вопрос о бюджете на еду, страховке, мобильной связи и экскурсиях.
-
-3. **Жильё и транспорт**:
-   - Найдены уютные квартиры в Тбилиси за около 120$ за ночь.
-   - Обсуждается возможность бронирования через Airbnb или Booking.
-   - Предлагается сделать группу в Telegram для координации.
-
-4. **Сопутствующие вопросы**:
-   - Страховка — один из участников уже проверил, действует до 2027 года, есть предложение застраховать всех.
-   - Визы — вопрос, кто займётся оформлением.
-   - Мобильная связь — приобретение местной сим-карты по прилёту.
-   - Одежда — обсуждение необходимости взять тёплую одежду для гор (флиску).
-   - Аптечка — кто возьмёт с собой.
-
-5. **Дополнительные идеи и активности**:
-   - Посещение винодельных и дегустации.
-   - Попытки организовать экскурсии.
-   - Открытость к новым впечатлениям и горячий энтузиазм в планировании путешествия.
-
-**Ключевые акценты:**
-- Участники настроены позитивно и уже активно выбирают маршруты, жильё, оценивают бюджетные расходы.
-- Есть общее согласие по датам, а также желание использовать современные инструменты (Telegram) для координации.
-- Основные бытовые вопросы (визы, страховки, связь, экипировка) уже обсуждаются.
-
-Общая сводка: команда друзей активно планирует насыщенное путешествие по Грузии летом 2025 года, обсуждая детали бюджета, маршрута, жилья и активности, проявляя высокий уровень энтузиазма и готовности к совместному приключению.`;
-
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-console.log('Ждём 1 секунду...');
-await sleep(3000).then(() => console.log('Прошла 1 секунда'));
+      const aiResponse =  await this.openAIService.generateResponse(content);
 
       return { message: aiResponse };
     }catch (error) {
@@ -399,16 +348,16 @@ ${formattedMessages}
   `;
 
   try {
-    const aiResponse = await this.openrouterService.getAIResponse([
-      { role: 'user', content: aiPrompt },
-    ]);
+    // const aiResponse = await this.openrouterService.getAIResponse([
+    //   { role: 'user', content: aiPrompt },
+    // ]);
 
-    const res = JSON.parse(aiResponse);
-    const validProfile = validateAndFixAiProfile(res);
+   // const res = JSON.parse(aiResponse);
+    //const validProfile = validateAndFixAiProfile(res);
 
 
     // Можно добавить парсинг или валидацию JSON тут
-    return { aiProfile: validProfile };
+    return { aiProfile: 'validProfile' };
   } catch (error) {
     console.error('Error calling AI:', error.response?.data || error.message);
     return { error: 'Error generating AI profile' };

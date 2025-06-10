@@ -15,6 +15,7 @@ import { Message } from './messages/messages.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { WebsocketModule } from './websocket/websocket.module';
+import { OpenAIModule } from './openai/openai.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { WebsocketModule } from './websocket/websocket.module';
     GroupsModule,
     UsersGroupsModule,
     MessagesModule,
-    WebsocketModule
+    WebsocketModule,
+    OpenAIModule
   ],
   controllers: [AppController],
   providers: [AppService],

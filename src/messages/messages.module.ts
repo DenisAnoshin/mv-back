@@ -7,14 +7,14 @@ import { Group } from '../groups/groups.entity';
 import { UsersGroups } from 'src/users_groups/users_groups.entity';
 import { HttpModule, HttpService } from '@nestjs/axios';
 import { MessagesController } from './messages.controller';
-import { OpenrouterModule } from 'src/openrouter/openrouter.module';
 import { WebsocketModule } from 'src/websocket/websocket.module';
+import { OpenAIModule } from 'src/openai/openai.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Message, User, Group, UsersGroups]),
     HttpModule,
-    OpenrouterModule,
+    OpenAIModule,
     forwardRef(() => WebsocketModule)
   ],
   controllers: [MessagesController],
