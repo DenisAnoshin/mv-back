@@ -18,10 +18,12 @@ import { WebsocketService } from './websocket.service';
  namespace: '/ws',
  transports: ['websocket'],
   cors: {
-    origin: '*',
-    methods: '*',
-    credentials: true,
-  },
+    origin: [
+      'https://words.multivisionhub.com',
+      'http://localhost' // Для тестов
+    ],
+    credentials: true
+  }
 })
 export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
