@@ -14,8 +14,9 @@ import { DeleteMessageDto } from 'src/common/dto/delete-message.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { WebsocketService } from './websocket.service';
 
-@WebSocketGateway({
+@WebSocketGateway(3001, {
  namespace: '/ws',
+ transports: ['websocket'],
   cors: {
     origin: '*',
     methods: '*',
