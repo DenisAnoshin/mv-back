@@ -15,7 +15,6 @@ import { AuthService } from 'src/auth/auth.service';
 import { WebsocketService } from './websocket.service';
 
 @WebSocketGateway(3001, {
-  namespace: '/ws',
   allowEIO3: true,
   cors: {
     origin: '*',
