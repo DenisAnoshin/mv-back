@@ -15,16 +15,14 @@ import { AuthService } from 'src/auth/auth.service';
 import { WebsocketService } from './websocket.service';
 
 @WebSocketGateway(3001, {
- namespace: '/ws',
- transports: ['websocket'],
+  namespace: '/ws',
   cors: {
-    origin: [
-      'https://words.multivisionhub.com',
-      'http://localhost' // Для тестов
-    ],
-    credentials: true
-  }
+    origin: '*',
+    methods: '*',
+    credentials: true,
+  },
 })
+
 export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   public server: Server;
