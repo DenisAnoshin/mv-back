@@ -106,6 +106,8 @@ async findGroupsForUser(userId: number): Promise<any[]> {
         username: m.sender.username,
         createdAt: m.createdAt,
         me: m.sender?.id === userId,
+        userId: m.sender?.id,
+        status: 'success',
       })),
       messagesCount: messages.length,
       usersCount: usersCount, 

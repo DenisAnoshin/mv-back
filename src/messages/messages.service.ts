@@ -115,6 +115,7 @@ export class MessagesService {
 
 
   async sendMessageWithEmit(dto: SendMessageDto) {
+
     const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
 
     let group = null;
@@ -136,15 +137,20 @@ export class MessagesService {
       id: savedMessage.id,
       text: savedMessage.text,
       username: sender.username,
+      userId: dto.senderId,
+      status: 'success',
       groupId: dto.groupId,
       createdAt: savedMessage.createdAt,
-      senderId: dto.senderId
+      senderId: dto.senderId,
+      me: false
     }, dto.senderId);
     
     return  {
       id: savedMessage.id,
       text: savedMessage.text,
       username: sender.username,
+      userId: dto.senderId,
+      status: 'success',
       groupId: dto.groupId,
       createdAt: savedMessage.createdAt,
       me: true

@@ -110,6 +110,8 @@ export class WebsocketGateway implements OnGatewayConnection, OnGatewayDisconnec
     const userId = client.data.userId;
     const deleted = await this.messagesService.deleteMessageById(data.messageId, userId);
 
+    console.log(data.messageId);
+
     if (!deleted) {
       return { success: false, error: 'Forbidden or message not found' };
     }

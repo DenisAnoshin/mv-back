@@ -28,7 +28,7 @@ import { OpenAIModule } from './openai/openai.module';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       entities: [User, Group, UsersGroups, Message],
-      synchronize: true, // ⚠️ не включай в продакшене!
+      synchronize: false,
     }),
     AuthModule,
     UsersModule,
