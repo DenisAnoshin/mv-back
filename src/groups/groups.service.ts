@@ -76,7 +76,9 @@ export class GroupsService {
     await this.groupsRepo.delete(id);
   }
 
-async findGroupsForUser(userId: number): Promise<any[]> {
+
+
+ async findGroupsForUser(userId: number): Promise<any[]> {
   const userGroups = await this.usersGroupsRepo.find({
     where: { user: { id: userId } },
     relations: ['group'],
@@ -88,7 +90,7 @@ async findGroupsForUser(userId: number): Promise<any[]> {
     const messages = await this.messagesRepo.find({
       where: { group: { id: group.id }, ai: false },
       order: { createdAt: 'ASC' },
-      relations: ['sender'],
+      relations: ['sender', 'replyTo', 'replyTo.sender'],
     });
 
     const usersCount = await this.usersGroupsRepo.count({
@@ -99,23 +101,34 @@ async findGroupsForUser(userId: number): Promise<any[]> {
       id: group.id,
       name: group.name,
       createdAt: group.createdAt,
-      sortDate: messages.length > 0 ? messages[messages.length - 1].createdAt : group.createdAt,
+      sortDate: messages.length > 0
+        ? messages[messages.length - 1].createdAt
+        : group.createdAt,
       messages: messages.map(m => ({
         id: m.id,
         text: m.text,
-        username: m.sender.username,
+        username: m.sender?.username,
         createdAt: m.createdAt,
         me: m.sender?.id === userId,
         userId: m.sender?.id,
         status: 'success',
+        reply: m.replyTo
+          ? {
+              id: m.replyTo.id,
+              text: m.replyTo.text,
+              username: m.replyTo.sender?.username ?? null,
+            }
+          : null,
       })),
       messagesCount: messages.length,
-      usersCount: usersCount, 
+      usersCount: usersCount,
     };
   }));
 
   return groups;
 }
+
+
 
 
   

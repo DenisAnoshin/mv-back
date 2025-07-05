@@ -28,7 +28,10 @@ import { UsersGroups } from 'src/users_groups/users_groups.entity';
   
     @ManyToOne(() => Group, (group) => group.messages, { nullable: true })
     group: Group;
-  
+
+    @ManyToOne(() => Message, { nullable: true })
+    replyTo: Message;
+
     @CreateDateColumn()
     createdAt: Date;
     message: { id: number; username: string; sentMessages: Message[]; receivedMessages: Message[]; usersGroups: UsersGroups[]; };

@@ -1,7 +1,6 @@
 import { IsBoolean, IsInt, IsOptional, IsString } from 'class-validator';
 
 export class SendMessageDto {
-  
   @IsInt()
   senderId: number;
 
@@ -19,4 +18,8 @@ export class SendMessageDto {
 
   @IsString()
   text: string;
+
+  @IsOptional()
+  @IsInt()
+  replyId?: number;
 }

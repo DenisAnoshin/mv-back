@@ -27,7 +27,6 @@ import { SendMessageDto } from 'src/common/dto/send-message.dto';
       @Request() req
     ) {
       const res = await this.messagesService.sendMessageWithEmit({...dto, groupId: id, senderId: req.user.userId});
-      console.log(res);
       return res;
     }
 

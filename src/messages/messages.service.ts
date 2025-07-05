@@ -115,48 +115,64 @@ export class MessagesService {
 
 
   async sendMessageWithEmit(dto: SendMessageDto) {
+  const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
+  if (!sender) throw new NotFoundException('Sender not found');
 
-    const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
-
-    let group = null;
-
-    if (dto.groupId) {
-      group = await this.groupRepo.findOne({ where: { id: dto.groupId } });
-      if (!group) throw new NotFoundException('Group not found');
-    }
-
-    const message = this.messageRepo.create({
-      text: dto.text,
-      sender,
-      group,
-    });
-
-    const savedMessage = await this.messageRepo.save(message);
-
-    this.websocketService.emitToRoomExceptUser(`group_${dto.groupId}`, 'new_message', {
-      id: savedMessage.id,
-      text: savedMessage.text,
-      username: sender.username,
-      userId: dto.senderId,
-      status: 'success',
-      groupId: dto.groupId,
-      createdAt: savedMessage.createdAt,
-      senderId: dto.senderId,
-      me: false
-    }, dto.senderId);
-    
-    return  {
-      id: savedMessage.id,
-      text: savedMessage.text,
-      username: sender.username,
-      userId: dto.senderId,
-      status: 'success',
-      groupId: dto.groupId,
-      createdAt: savedMessage.createdAt,
-      me: true
-    }
-
+  let group = null;
+  if (dto.groupId) {
+    group = await this.groupRepo.findOne({ where: { id: dto.groupId } });
+    if (!group) throw new NotFoundException('Group not found');
   }
+
+  let replyTo = null;
+  if (dto.replyId) {
+    replyTo = await this.messageRepo.findOne({
+      where: { id: dto.replyId },
+      relations: ['sender'],
+    });
+    if (!replyTo) throw new NotFoundException('Replied message not found');
+  }
+
+  const message = this.messageRepo.create({
+    text: dto.text,
+    sender,
+    group,
+    replyTo,
+    ai: dto.ai ?? false,
+    aiAnswer: dto.aiAnswer ?? false,
+  });
+
+  const savedMessage = await this.messageRepo.save(message);
+
+  const replyPayload = replyTo
+    ? {
+        id: replyTo.id,
+        text: replyTo.text,
+        username: replyTo.sender?.username ?? null,
+      }
+    : null;
+
+  const payload = {
+    id: savedMessage.id,
+    text: savedMessage.text,
+    username: sender.username,
+    userId: dto.senderId,
+    status: 'success',
+    groupId: dto.groupId,
+    createdAt: savedMessage.createdAt,
+    senderId: dto.senderId,
+    me: false,
+    reply: replyPayload,
+  };
+
+  this.websocketService.emitToRoomExceptUser(`group_${dto.groupId}`, 'new_message', payload, dto.senderId);
+
+  return {
+    ...payload,
+    me: true, 
+  };
+}
+
 
   async sendMessage(dto: SendMessageDto): Promise<Message> {
     const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
