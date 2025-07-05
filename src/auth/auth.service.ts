@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -33,17 +33,26 @@ export class AuthService {
   }
 
   async register(data: { username: string; password: string }) {
-    const existing = await this.userRepository.findOne({ where: { username: data.username } });
-    if (existing) throw new UnauthorizedException('User already exists');
+    const username = data.username.trim();
+    if (!username) {
+      throw new BadRequestException('Username cannot be empty');
+    }
+
+    const existing = await this.userRepository.findOne({ where: { username } });
+    if (existing) {
+      throw new UnauthorizedException('User already exists');
+    }
 
     const hashedPassword = await bcrypt.hash(data.password, 10);
     const user = this.userRepository.create({
-      username: data.username,
+      username,
       password: hashedPassword,
     });
+
     await this.userRepository.save(user);
     return this.login(user);
   }
+
 
   async validateToken(token: string): Promise<any> {
     try {
