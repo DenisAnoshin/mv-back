@@ -4,8 +4,6 @@ export class AddReplyToMessage1750413442750 implements MigrationInterface {
     name = 'AddReplyToMessage1750413442750'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`ALTER TABLE "message" DROP COLUMN "content"`);
-        await queryRunner.query(`ALTER TABLE "message" DROP COLUMN "authorId"`);
 
         await queryRunner.query(`ALTER TABLE "message" ADD "text" character varying`);
         await queryRunner.query(`ALTER TABLE "message" ADD "ai" boolean NOT NULL DEFAULT false`);
