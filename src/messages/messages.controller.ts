@@ -64,6 +64,14 @@ import { SendMessageDto } from 'src/common/dto/send-message.dto';
       return messages;
     }
 
+    @Get('/ai/snippets/:id')
+    async getSnippets(
+      @Param('id', ParseIntPipe) id: number,
+      @Request() req: any
+    ): Promise<any> {
+      return this.messagesService.getSnippets({groupId: id, senderId: req.user.userId});
+    }
+
 
     @Get('/ai/:id/summary')
     async getSummaryMessages(

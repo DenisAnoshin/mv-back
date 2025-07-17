@@ -9,6 +9,7 @@ import { UsersGroups } from 'src/users_groups/users_groups.entity';
 //import { OpenrouterService } from 'src/openrouter/openrouter.service';
 import { WebsocketService } from 'src/websocket/websocket.service';
 import { OpenAIService } from 'src/openai/openai.service';
+import { RequestSnippets } from 'src/common/dto/request-snippets.dto';
 //import { MessagesGateway } from './messages.gateway';
 //import { HandleConnectionHandler } from './handlers/handle-connection.handler';
 //import { WebsocketService } from 'src/websocket/websocket.gateway';
@@ -277,7 +278,7 @@ export class MessagesService {
 
         Используй переносы строк и красивое форматирование текста для более удобного чтения.
         
-        Вот история переписки чата.
+        Вот история переписки чата. Твоя задача дать краткую сводку по переписке.
         ${contextDialog}
 
 
@@ -386,6 +387,53 @@ ${formattedMessages}
   }
   
 }
+
+
+async getSnippets(dto: RequestSnippets): Promise<any> {
+    const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
+    if (!sender) throw new NotFoundException('Sender not found');
+
+
+    let group = null;
+
+    if (dto.groupId) {
+      group = await this.groupRepo.findOne({ where: { id: dto.groupId } });
+      if (!group) throw new NotFoundException('Group not found');
+    }
+
+    const contextDialogBd = await this.getMessagesForGroup(dto.groupId, dto.senderId);
+    const contextDialog = this.formatMessages(contextDialogBd);
+
+    const content = `
+
+        Проведи анализ данной переписке и пришли мне от 3 до 5 снипетов с текстом в json формате в виде массива. 
+        Формат { "snippets": ["snippet1", "snippet2", "snippet3"] }
+        нужно чтобы ты определил ключевые вопросы, которые могут быть интересны пользователю, глядя на эту переписку.
+        Пример снипетов: О чем чат? Куда решили ехать? Кто инициатор поездки?
+        Также снипеты должны быть максимально короткие, они будут на телефоне в одну строку в виде кнопок.
+        Твои снипеты буду предназначены для AI асистента, не для пользователей. Эти снипеты нужны чтобы лучше помочь узнать пользователю что-то о чате.
+        Сформируй такой список снипетов, чтобы пользовтаелю было удобно и быстро спросить что-то важное и ключевое о чате в котором он находится. 
+        Отвечай только валидным json!!! Это очень важно, твой ответ парсит JSON.parse.
+        Изучи переписку, если трудно определить снипеты, или слишком короткая переписка, присылай пустой массив. 
+        Ниже переписка:
+
+        ${contextDialog}
+
+        `;
+
+    
+    try{
+
+      const aiResponse = await this.openAIService.generateResponse(content);
+
+      const res = JSON.parse(aiResponse);
+
+      return res;
+    }catch (error) {
+      console.error('Error calling OpenRouter API:', error.response?.data || error.message);
+      return { message: 'Error' };
+    } 
+  }
 
 
 
