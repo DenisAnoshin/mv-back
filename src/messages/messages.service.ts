@@ -429,9 +429,9 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
       const res: any = JSON.parse(aiResponse);  
      
       res.snippets = [
-        'Что происходит в чате',
+        'Что происходит в чате?',
         'Дай характеристику участников',
-        'Есть ли какие решения',
+        'Есть ли какие-то решения?',
         ...res.snippets
       ]
       
