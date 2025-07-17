@@ -426,12 +426,14 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
 
       const aiResponse = await this.openAIService.generateResponse(content);
 
-      const res = JSON.parse(aiResponse);
+      const res = JSON.parse(aiResponse);  
+     
+      
 
       return res;
     }catch (error) {
       console.error('Error calling OpenRouter API:', error.response?.data || error.message);
-      return { message: 'Error' };
+      return {snippets: []};
     } 
   }
 
