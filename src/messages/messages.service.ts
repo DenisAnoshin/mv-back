@@ -426,11 +426,17 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
 
       const aiResponse = await this.openAIService.generateResponse(content);
 
-      const res = JSON.parse(aiResponse);  
+      const res: any = JSON.parse(aiResponse);  
      
+      res.snippets = [
+        'Что происходит в чате',
+        'Дай характеристику участников',
+        'Есть ли какие решения',
+        ...res.snippets
+      ]
       
 
-      return res;
+      return  res;
     }catch (error) {
       console.error('Error calling OpenRouter API:', error.response?.data || error.message);
       return {snippets: []};
