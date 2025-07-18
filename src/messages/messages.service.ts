@@ -8,11 +8,12 @@ import { Group } from '../groups/groups.entity';
 import { UsersGroups } from 'src/users_groups/users_groups.entity';
 //import { OpenrouterService } from 'src/openrouter/openrouter.service';
 import { WebsocketService } from 'src/websocket/websocket.service';
-import { OpenAIService } from 'src/openai/openai.service';
+import { ChatMessage, OpenAIService } from 'src/openai/openai.service';
 import { RequestSnippets } from 'src/common/dto/request-snippets.dto';
 //import { MessagesGateway } from './messages.gateway';
 //import { HandleConnectionHandler } from './handlers/handle-connection.handler';
 //import { WebsocketService } from 'src/websocket/websocket.gateway';
+
 
 @Injectable()
 export class MessagesService {
@@ -93,6 +94,17 @@ export class MessagesService {
     return messages
       .map((msg) => `[${msg.username} - ${msg.createdAt.toISOString()}]\n${msg.text}`)
       .join('\n\n');
+  }
+
+  async buildAiMessageHistory(groupId: number, userId: number): Promise<ChatMessage[]> {
+    const rawMessages = await this.getMessagesForGroupAi(groupId, userId);
+
+    const chatMessages: ChatMessage[] = rawMessages.map((msg) => ({
+      role: msg.username === 'AI' ? 'assistant' : 'user',
+      content: msg.text,
+    }));
+
+    return chatMessages;
   }
 
   async deleteMessageById(messageId: number, userId: number): Promise<any> {
@@ -212,14 +224,22 @@ export class MessagesService {
     const contextDialogBd = await this.getMessagesForGroup(dto.groupId, dto.senderId);
     const contextDialog = this.formatMessages(contextDialogBd);
 
-    const contextAiDb = await this.getMessagesForGroupAi(dto.groupId, dto.senderId);
-    const contextAi = this.formatMessages(contextAiDb);
+    const contextAi = await this.buildAiMessageHistory(dto.groupId, dto.senderId);
 
-    const content = `
+    const system = `
+        Отвечай кратко, только по делу. 
+        Присылай мне текст в Markdown-стиле. Используй:
+        Жирное выделение ** для имён или важных слов
+        Маркированный список с -
+        Структурированные описания после тире —
+        Без лишней воды, строго и понятно.
+    `;
+
+    const promt = `
 
         ${messageUser}
         
-        История чата/переписки. Отвечай кратко, только по делу. Без форматирования только текстом и переносом.
+        Вот история чата/переписки.
         ${contextDialog}
 
         `;
@@ -235,7 +255,7 @@ export class MessagesService {
   
       await this.messageRepo.save(message)
 
-      const aiResponse = await this.openAIService.generateResponse(content);
+      const aiResponse = await this.openAIService.generateResponse(promt, system, contextAi);
 
       const messageAi = this.messageRepo.create({
         text: aiResponse,
@@ -270,22 +290,25 @@ export class MessagesService {
     const contextDialogBd = await this.getMessagesForGroup(groupId, senderId);
     const contextDialog = this.formatMessages(contextDialogBd);
 
-    const content = `
-        
-        Ниже представленна история переписки из чата. Твоя задача провести анализ этих сообщений, и дать краткую сводку. 
-        Постарайся выделить ключевые и важные сообщения и сделать на них акцент.
+    const system = `
+      Присылай мне текст в Markdown-стиле. Используй:
+      Жирное выделение ** для имён или важных слов
+      Маркированный список с -
+      Структурированные описания после тире —
+      И т.д.
+      
+      Вот история переписки чата. Твоя задача дать краткую сводку по переписке.
+      Не нужно говрить: вот краткая сводка. Сразу присылай ее.
 
-        Используй переносы строк и красивое форматирование текста для более удобного чтения.
-        
-        Вот история переписки чата. Твоя задача дать краткую сводку по переписке.
-        ${contextDialog}
+      Ниже представленна история переписки из чата. Твоя задача провести анализ этих сообщений, и дать краткую сводку. 
+      Постарайся выделить ключевые и важные сообщения и сделать на них акцент.
+      Длина текста должен быть приблизительно 1-2 высоты экрана на стандартном телефоне.
+    `;
 
-
-        `;
     
     try{
 
-      const aiResponse =  await this.openAIService.generateResponse(content);
+      const aiResponse =  await this.openAIService.generateResponse(contextDialog, system, []);
 
       return { message: aiResponse };
     }catch (error) {
@@ -403,9 +426,8 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
     const contextDialogBd = await this.getMessagesForGroup(dto.groupId, dto.senderId);
     const contextDialog = this.formatMessages(contextDialogBd);
 
-    const content = `
-
-        Проведи анализ данной переписке и пришли мне от 3 до 5 снипетов с текстом в json формате в виде массива. 
+    const system = `
+    Проведи анализ данной переписке и пришли мне от 3 до 5 снипетов с текстом в json формате в виде массива. 
         Формат { "snippets": ["snippet1", "snippet2", "snippet3"] }
         нужно чтобы ты определил ключевые вопросы, которые могут быть интересны пользователю, глядя на эту переписку.
         Пример снипетов: О чем чат? Куда решили ехать? Кто инициатор поездки?
@@ -415,15 +437,11 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
         Отвечай только валидным json!!! Это очень важно, твой ответ парсит JSON.parse.
         Изучи переписку, если трудно определить снипеты, или слишком короткая переписка, присылай пустой массив. 
         Ниже переписка:
+    `;
 
-        ${contextDialog}
-
-        `;
-
-    
     try{
 
-      const aiResponse = await this.openAIService.generateResponse(content);
+      const aiResponse = await this.openAIService.generateResponse(contextDialog, system, []);
 
       const res: any = JSON.parse(aiResponse);  
      
@@ -433,7 +451,6 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
         'Есть ли какие-то решения?',
         ...res.snippets
       ]
-      
 
       return  res;
     }catch (error) {
