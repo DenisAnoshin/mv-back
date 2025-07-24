@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
@@ -17,11 +17,17 @@ import { ConfigModule } from '@nestjs/config';
 import { WebsocketModule } from './websocket/websocket.module';
 import { OpenAIModule } from './openai/openai.module';
 import { dataSourceOptions } from './common/data-source';
+import { LoginTimeMiddleware } from './common/middleware/login-time.middleware';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET || 'your-secret-key',
+      signOptions: { expiresIn: '365d' },
+    }),
     AuthModule,
     UsersModule,
     GroupsModule,
@@ -33,4 +39,10 @@ import { dataSourceOptions } from './common/data-source';
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(LoginTimeMiddleware)
+      .forRoutes('*');
+  }
+}
