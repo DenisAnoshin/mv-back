@@ -30,6 +30,29 @@ export class UsersService {
     await this.userRepository.delete(id);
   }
 
+  async updateLoginTime(userId: number): Promise<void> {
+    await this.userRepository.update(userId, {
+      loginAt: new Date()
+    });
+  }
+
+  // Метод для получения времени последнего входа пользователя
+  async getLastLoginTime(userId: number): Promise<Date | null> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['loginAt']
+    });
+    return user?.loginAt || null;
+  }
+
+  // Метод для получения пользователя с информацией о времени входа
+  async findOneWithLoginTime(id: number): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      select: ['id', 'username', 'loginAt']
+    });
+  }
+
 
   async getProfile(userId: number) {
 

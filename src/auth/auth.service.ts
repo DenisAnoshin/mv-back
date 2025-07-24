@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/users.entity';
 import * as bcrypt from 'bcrypt';
+import { UsersService } from 'src/users/users.service';
 
 @Injectable()
 export class AuthService {
@@ -11,6 +12,7 @@ export class AuthService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private jwtService: JwtService,
+    private usersService: UsersService,
   ) {}
 
   async validateUser(username: string, password: string): Promise<User> {
@@ -24,6 +26,7 @@ export class AuthService {
   }
 
   async login(user: User) {
+    await this.usersService.updateLoginTime(user.id);
     const payload = { username: user.username, sub: user.id };
     return {
       token: this.jwtService.sign(payload),

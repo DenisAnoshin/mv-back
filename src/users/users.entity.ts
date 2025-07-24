@@ -14,7 +14,9 @@ export class User {
   @Column()
   password: string;
 
-  
+  @Column({ type: 'timestamp', nullable: true })
+  loginAt: Date;
+
   @OneToMany(() => Message, (msg) => msg.sender)
   sentMessages: Message[];
 
