@@ -8,7 +8,8 @@ import {
     Get,
     Param,
     ParseIntPipe,
-    Delete
+    Delete,
+    Query
   } from '@nestjs/common';
   import { MessagesService } from './messages.service';
   import { AuthGuard } from '@nestjs/passport';
@@ -50,8 +51,8 @@ import { SendMessageDto } from 'src/common/dto/send-message.dto';
 
 
     @Get('/ai/profile')
-    async generateUserAiProfile(@Request() req): Promise<any> {
-      const profile = await this.messagesService.generateUserAiProfile(req.user.userId);
+    async generateUserAiProfile(@Request() req, @Query('userId', ParseIntPipe) targetUserId: number): Promise<any> {
+      const profile = await this.messagesService.generateUserAiProfile(targetUserId, req.user.userId);
       return profile;
     }
 

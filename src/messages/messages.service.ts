@@ -262,7 +262,7 @@ export class MessagesService {
   - «Да»
   - «Запусти»
   
- Это считается **подтверждением**. Сразу **выполняй своё предложение**, не спрашивай дополнительно.
+  Это считается **подтверждением**. Сразу **выполняй своё предложение**, не спрашивай дополнительно.
 
 Пример:
 Могу помочь оформить идею как презентацию.  
@@ -377,101 +377,238 @@ const promt = messageUser;
     } 
   }
 
+  // Returns group ids that both users share
+  private async getMutualGroupIds(userAId: number, userBId: number): Promise<number[]> {
+    const rows = await this.groupUserRepository
+      .createQueryBuilder('ug')
+      .select('ug.groupId', 'groupId')
+      .where('ug.userId IN (:...userIds)', { userIds: [userAId, userBId] })
+      .groupBy('ug.groupId')
+      .having('COUNT(DISTINCT ug.userId) = 2')
+      .getRawMany();
 
-  async generateUserAiProfile(dto: { groupId: number, senderId: number }): Promise<any> {
-  const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
-  if (!sender) throw new NotFoundException('Sender not found');
+    return rows.map((r: any) => Number(r.groupId));
+  }
 
-  // Получаем переписку пользователя (или всей группы, если надо)
-  const messages = await this.getMessagesForGroup(dto.groupId, dto.senderId);
-  const formattedMessages = this.formatMessages(messages);
+  private buildDefaultAiProfileData() {
+    return {
+      data: {
+        avatarUrl: null,
+        quote: '',
+        headline: '',
+        favoriteEmoji: '',
+        online: false,
+        lastOnline: '',
+        emotionLevel: 0.0,
+        emotionLabel: '',
+        emotionTimeline: [],
+        aiCurrentMood: '',
+        aiProfileSummary: '',
+        aiAdvice: '',
+        aiSupportScore: 0.0,
+        messagesCount: 0,
+        activityLevel: 0.0,
+        badges: [],
+        timeInApp: [],
+        categories: [],
+        aiAchievements: [],
+        aiStyle: '',
+        aiHowUserCanHelp: ''
+      }
+    };
+  }
 
-  // Формируем промт для AI
-  const aiPrompt = `
-Ты — помощник, который на основании истории сообщений пользователя должен сгенерировать JSON-профиль пользователя.
-Используй ТОЛЬКО следующую схему:
+  private normalizeAiProfile(raw: any) {
+    const def = this.buildDefaultAiProfileData();
+    const out = { ...def };
+    if (raw && typeof raw === 'object' && raw.data && typeof raw.data === 'object') {
+      const d = raw.data;
+      out.data.avatarUrl = d.avatarUrl ?? def.data.avatarUrl;
+      out.data.quote = typeof d.quote === 'string' ? d.quote : def.data.quote;
+      out.data.headline = typeof d.headline === 'string' ? d.headline : def.data.headline;
+      out.data.favoriteEmoji = typeof d.favoriteEmoji === 'string' ? d.favoriteEmoji : def.data.favoriteEmoji;
+      out.data.online = typeof d.online === 'boolean' ? d.online : def.data.online;
+      out.data.lastOnline = typeof d.lastOnline === 'string' ? d.lastOnline : def.data.lastOnline;
+      const clamp01 = (n: any) => {
+        const num = typeof n === 'number' ? n : 0;
+        return Math.max(0, Math.min(1, num));
+      };
+      out.data.emotionLevel = clamp01(d.emotionLevel);
+      out.data.emotionLabel = typeof d.emotionLabel === 'string' ? d.emotionLabel : def.data.emotionLabel;
+      out.data.emotionTimeline = Array.isArray(d.emotionTimeline) ? d.emotionTimeline.filter((x: any) => typeof x === 'number').map(clamp01) : def.data.emotionTimeline;
+      out.data.aiCurrentMood = typeof d.aiCurrentMood === 'string' ? d.aiCurrentMood : def.data.aiCurrentMood;
+      out.data.aiProfileSummary = typeof d.aiProfileSummary === 'string' ? d.aiProfileSummary : def.data.aiProfileSummary;
+      out.data.aiAdvice = typeof d.aiAdvice === 'string' ? d.aiAdvice : def.data.aiAdvice;
+      out.data.aiSupportScore = clamp01(d.aiSupportScore);
+      out.data.messagesCount = Number.isInteger(d.messagesCount) && d.messagesCount >= 0 ? d.messagesCount : def.data.messagesCount;
+      out.data.activityLevel = clamp01(d.activityLevel);
+      out.data.badges = Array.isArray(d.badges)
+        ? d.badges
+            .filter((b: any) => b && typeof b === 'object')
+            .map((b: any) => ({
+              icon: typeof b.icon === 'string' ? b.icon : '',
+              name: typeof b.name === 'string' ? b.name : '',
+            }))
+        : def.data.badges;
+      out.data.timeInApp = Array.isArray(d.timeInApp) ? d.timeInApp.filter((x: any) => typeof x === 'number') : def.data.timeInApp;
+      out.data.categories = Array.isArray(d.categories) ? d.categories.filter((x: any) => typeof x === 'string') : def.data.categories;
+      out.data.aiAchievements = Array.isArray(d.aiAchievements) ? d.aiAchievements.filter((x: any) => typeof x === 'string') : def.data.aiAchievements;
+      out.data.aiStyle = typeof d.aiStyle === 'string' ? d.aiStyle : def.data.aiStyle;
+      out.data.aiHowUserCanHelp = typeof d.aiHowUserCanHelp === 'string' ? d.aiHowUserCanHelp : def.data.aiHowUserCanHelp;
+    }
+    return out;
+  }
 
+  private tryParseJsonStrict(text: string): any | null {
+    try {
+      return JSON.parse(text);
+    } catch {
+      // try to extract JSON between first { and last }
+      const first = text.indexOf('{');
+      const last = text.lastIndexOf('}');
+      if (first !== -1 && last !== -1 && last > first) {
+        const slice = text.slice(first, last + 1);
+        try { return JSON.parse(slice); } catch { return null; }
+      }
+      return null;
+    }
+  }
+
+  private async getFormattedMutualMessagesContext(targetUserId: number, requesterUserId: number): Promise<{ formatted: string; messagesCount: number; }> {
+    const mutualGroupIds = await this.getMutualGroupIds(targetUserId, requesterUserId);
+    if (!mutualGroupIds.length) {
+      return { formatted: '', messagesCount: 0 };
+    }
+
+    const allMessages: { text: string; createdAt: Date; username: string }[] = [];
+
+    for (const gid of mutualGroupIds) {
+      const msgs = await this.getMessagesForGroup(gid, requesterUserId);
+      allMessages.push(...msgs.map(m => ({ text: m.text, createdAt: m.createdAt, username: m.username })));
+    }
+
+    // sort across groups by time
+    allMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    return { formatted: this.formatMessages(allMessages), messagesCount: allMessages.length };
+  }
+
+  private async getFormattedOwnMessagesContext(userId: number): Promise<{ formatted: string; messagesCount: number; }> {
+    const messages = await this.messageRepo.find({
+      where: { sender: { id: userId }, ai: false },
+      relations: ['sender'],
+      order: { createdAt: 'ASC' },
+    });
+
+    const mapped = messages.map((msg) => ({
+      text: msg.text,
+      createdAt: msg.createdAt,
+      username: msg.sender?.username ?? 'me',
+    }));
+
+    return { formatted: this.formatMessages(mapped), messagesCount: mapped.length };
+  }
+
+
+  async generateUserAiProfile(targetUserId: number, requesterUserId: number ): Promise<any> {
+  const targetUser = await this.userRepo.findOne({ where: { id: targetUserId } });
+  if (!targetUser) throw new NotFoundException('Target user not found');
+
+  // collect context
+  const isSelf = targetUserId === requesterUserId;
+  const contextData = isSelf
+    ? await this.getFormattedOwnMessagesContext(targetUserId)
+    : await this.getFormattedMutualMessagesContext(targetUserId, requesterUserId);
+
+  const contextDialog = contextData.formatted;
+  const messagesCount = contextData.messagesCount;
+
+  const lastLoginAt = targetUser.loginAt ? new Date(targetUser.loginAt) : null;
+  const now = new Date();
+  const minutesSince = lastLoginAt ? Math.floor((now.getTime() - lastLoginAt.getTime()) / 60000) : null;
+
+  const contextLine = isSelf
+    ? `- Источник: собственные сообщения пользователя; количество собранных сообщений: ${messagesCount}.`
+    : `- Совместные чаты: ${contextDialog ? 'есть' : 'нет'}; количество собранных сообщений: ${messagesCount}.`;
+
+  const system = `
+Ты — аналитик профиля пользователя внутри мессенджера. Твоя задача — по истории переписок СГЕНЕРИРОВАТЬ строго JSON со сводной AI-картой профиля указанного пользователя.
+
+Контекст:
+- Просматриваем профиль пользователя с id=${targetUserId}, username="${targetUser.username}".
+- Текущий пользователь, который смотрит профиль: id=${requesterUserId}.
+- Последний вход пользователя (loginAt): ${lastLoginAt ? lastLoginAt.toISOString() : 'unknown'}.
+${contextLine}
+
+Требования к ответу:
+- Верни ТОЛЬКО валидный JSON, БЕЗ лишнего текста.
+- Структура:
 {
-  "nickname": "string",
-  "categories": ["string"],
-  "emotionLevel": "number (0..1)",
-  "emotionLabel": "string",
-  "messagesCount": "integer",
-  "activityLevel": "number (0..1)",
-  "avatarUrl": "string|null",
-  "status": "string",
-  "statusColor": "hex string (#RRGGBB)",
-  "favoriteEmoji": "string (emoji)",
-  "badges": [{ "icon": "string (emoji)", "label": "string" }],
-  "activityLast7Days": ["number (0..1)"],
-  "quote": "string",
-  "emotionTimeline": ["number (0..1)"],
-  "aiAdvice": "string",
-  "aiProfileSummary": "string",
-  "socialCircle": [{ "name": "string", "emoji": "string (emoji)" }],
-  "aiAchievements": ["string"],
-  "aiHeadline": "string",
-  "timeInApp": ["number (часы за день)"],
-  "aiStyle": "string",
-  "aiCurrentMood": "string",
-  "aiSupportScore": "number (0..1)",
-  "lastOnline": "string",
-  "online": "boolean"
+  "data": {
+    "avatarUrl": string|null,
+    "quote": string,
+    "headline": string,
+    "favoriteEmoji": string,
+    "online": boolean,
+    "lastOnline": string,
+
+    "emotionLevel": number,        // 0..1
+    "emotionLabel": string,
+    "emotionTimeline": number[],    // значения 0..1, длина 0..7
+    "aiCurrentMood": string,
+    "aiProfileSummary": string,
+    "aiAdvice": string,
+    "aiSupportScore": number,      // 0..1
+
+    "messagesCount": number,       // целое >= 0 (можешь оценить по контексту)
+    "activityLevel": number,       // 0..1 (оценка активности)
+    "badges": [{ "icon": string, "name": string }],
+    "timeInApp": number[],         // 0..24, длина 0..7 (можешь оценить)
+
+    "categories": string[],
+    "aiAchievements": string[],
+    "aiStyle": string,
+    "aiHowUserCanHelp": string     // чем этот пользователь может быть полезен другим: сильные стороны, экспертиза, примеры пользЫ
+  }
 }
 
-**Описание каждого поля:**
-nickname: Имя или ник пользователя.
-categories: Список интересов пользователя.
-emotionLevel: Эмоциональный уровень пользователя (float, 0 = минимум, 1 = максимум).
-emotionLabel: Название текущей эмоции.
-messagesCount: Количество отправленных сообщений (integer).
-activityLevel: Уровень активности (float 0..1).
-avatarUrl: Ссылка на аватар или null.
-status: Текстовый статус пользователя (например, “В сети”).
-statusColor: Цвет статуса в hex (#RRGGBB).
-favoriteEmoji: Любимый эмодзи пользователя.
-badges: Массив объектов {icon, label}.
-activityLast7Days: Список активности за последние 7 дней (float 0..1).
-quote: Персональная цитата.
-emotionTimeline: Значения эмоций за неделю (float 0..1).
-aiAdvice: Советы от AI по улучшению состояния.
-aiProfileSummary: Краткое AI-резюме профиля.
-socialCircle: Социальный круг пользователя — массив объектов {name, emoji}.
-aiAchievements: AI-определённые достижения (массив string).
-aiHeadline: Краткое описание пользователя от AI.
-timeInApp: Массив чисел, часы в приложении по дням.
-aiStyle: Описание стиля общения пользователя.
-aiCurrentMood: Текущее настроение.
-aiSupportScore: Оценка поддержки от других (float 0..1).
-lastOnline: Время последнего онлайн.
-online: true/false.
+Правила генерации:
+- Если контекста мало — возвращай пустые/дефолтные значения (пустые строки/массивы, 0/false/null) и ничего не выдумывай.
+- Если данные очевидны из истории — кратко отрази их.
+- Поля emotionLevel, aiSupportScore, activityLevel и значения в emotionTimeline должны быть в диапазоне 0..1.
+- "aiHowUserCanHelp" сформулируй 1–2 предложениями: где пользователь наиболее полезен, как он может помочь другим (наставничество, экспертиза, типичные вопросы/задачи).
+- Верни только JSON без Markdown, без комментариев, без пояснений.
+`;
 
-Вот история сообщений пользователя:
-${formattedMessages}
-
-Если информации недостаточно для заполнения какого-либо поля — поставь нейтральные значения: пустые строки, нули, null или массивы из нулей. Отвечай ТОЛЬКО валидным JSON.
-  `;
+  const prompt = isSelf
+    ? `Ниже собраны собственные сообщения пользователя (он смотрит свой профиль):\n\n${contextDialog}`
+    : `Ниже история сообщений из общих чатов (если пусто — чатов нет):\n\n${contextDialog}`;
 
   try {
-    // const aiResponse = await this.openrouterService.getAIResponse([
-    //   { role: 'user', content: aiPrompt },
-    // ]);
+    const aiText = await this.openAIService.generateResponse(prompt, system, []);
+    const parsed = this.tryParseJsonStrict(aiText) ?? this.buildDefaultAiProfileData();
+    const normalized = this.normalizeAiProfile(parsed);
 
-   // const res = JSON.parse(aiResponse);
-    //const validProfile = validateAndFixAiProfile(res);
+    // Optionally enrich with some known numeric hints
+    normalized.data.messagesCount = normalized.data.messagesCount || messagesCount;
 
+    // online/lastOnline: compute strictly from loginAt with a 15-minute threshold
+    if (minutesSince !== null) {
+      normalized.data.online = minutesSince <= 15;
+      if (normalized.data.lastOnline === '') {
+        normalized.data.lastOnline = minutesSince === 0 ? 'just now' : `${minutesSince} minutes ago`;
+      }
+    }
 
-    // Можно добавить парсинг или валидацию JSON тут
-    return { aiProfile: 'validProfile' };
+    return normalized;
   } catch (error) {
-    console.error('Error calling AI:', error.response?.data || error.message);
-    return { error: 'Error generating AI profile' };
+    console.error('Error generating AI profile:', (error as any).response?.data || (error as any).message);
+    return this.buildDefaultAiProfileData();
   }
-  
-}
+  }
 
 
-async getSnippets(dto: RequestSnippets): Promise<any> {
+  async getSnippets(dto: RequestSnippets): Promise<any> {
     const sender = await this.userRepo.findOne({ where: { id: dto.senderId } });
     if (!sender) throw new NotFoundException('Sender not found');
 
@@ -501,16 +638,17 @@ async getSnippets(dto: RequestSnippets): Promise<any> {
 
     try{
 
-      const aiResponse = await this.openAIService.generateResponse(contextDialog, system, []);
+      //const aiResponse = await this.openAIService.generateResponse(contextDialog, system, []);
 
-      const res: any = JSON.parse(aiResponse);  
+    //  const res: any = JSON.parse(aiResponse);  
+      const res: any = {snippets: []}; //= JSON.parse(aiResponse);  
      
       res.snippets = [
         'Что ты можешь?',
         'Что происходит в чате?',
         'Дай характеристику участников',
         'Есть ли какие-то решения?',
-        ...res.snippets
+       // ...res.snippets
       ]
 
       return  res;
