@@ -474,26 +474,46 @@ const promt = messageUser;
     }
   }
 
-  private async getFormattedMutualMessagesContext(targetUserId: number, requesterUserId: number): Promise<{ formatted: string; messagesCount: number; }> {
-    const mutualGroupIds = await this.getMutualGroupIds(targetUserId, requesterUserId);
-    if (!mutualGroupIds.length) {
-      return { formatted: '', messagesCount: 0 };
-    }
-
-    const allMessages: { text: string; createdAt: Date; username: string }[] = [];
-
-    for (const gid of mutualGroupIds) {
-      const msgs = await this.getMessagesForGroup(gid, requesterUserId);
-      allMessages.push(...msgs.map(m => ({ text: m.text, createdAt: m.createdAt, username: m.username })));
-    }
-
-    // sort across groups by time
-    allMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-    return { formatted: this.formatMessages(allMessages), messagesCount: allMessages.length };
+  private formatLastOnline(date: Date | null): string {
+    if (!date) return '';
+    const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+    const y = date.getFullYear();
+    const m = pad(date.getMonth() + 1);
+    const d = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const mm = pad(date.getMinutes());
+    return `${y}-${m}-${d} ${hh}:${mm}`;
   }
 
-  private async getFormattedOwnMessagesContext(userId: number): Promise<{ formatted: string; messagesCount: number; }> {
+  private async getFormattedMutualMessagesContext(targetUserId: number, requesterUserId: number): Promise<{ formatted: string; totalMessages: number; authoredByTarget: number; }> {
+    const mutualGroupIds = await this.getMutualGroupIds(targetUserId, requesterUserId);
+    if (!mutualGroupIds.length) {
+      return { formatted: '', totalMessages: 0, authoredByTarget: 0 };
+    }
+
+    const allMessages: { text: string; createdAt: Date; username: string; senderId?: number }[] = [];
+    let authoredByTarget = 0;
+
+    for (const gid of mutualGroupIds) {
+      const rows = await this.messageRepo.find({
+        where: { group: { id: gid }, ai: false },
+        relations: ['sender'],
+        order: { createdAt: 'ASC' },
+      });
+
+      for (const msg of rows) {
+        allMessages.push({ text: msg.text, createdAt: msg.createdAt, username: msg.sender?.username ?? 'unknown', senderId: msg.sender?.id });
+        if (msg.sender?.id === targetUserId) authoredByTarget += 1;
+      }
+    }
+
+    allMessages.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+
+    const formatted = this.formatMessages(allMessages.map(m => ({ text: m.text, createdAt: m.createdAt, username: m.username })));
+    return { formatted, totalMessages: allMessages.length, authoredByTarget };
+  }
+
+  private async getFormattedOwnMessagesContext(userId: number): Promise<{ formatted: string; totalMessages: number; authoredByTarget: number; }> {
     const messages = await this.messageRepo.find({
       where: { sender: { id: userId }, ai: false },
       relations: ['sender'],
@@ -506,7 +526,7 @@ const promt = messageUser;
       username: msg.sender?.username ?? 'me',
     }));
 
-    return { formatted: this.formatMessages(mapped), messagesCount: mapped.length };
+    return { formatted: this.formatMessages(mapped), totalMessages: mapped.length, authoredByTarget: mapped.length };
   }
 
 
@@ -521,15 +541,27 @@ const promt = messageUser;
     : await this.getFormattedMutualMessagesContext(targetUserId, requesterUserId);
 
   const contextDialog = contextData.formatted;
-  const messagesCount = contextData.messagesCount;
+  const totalMessages = contextData.totalMessages;
+  const authoredMessages = contextData.authoredByTarget;
 
   const lastLoginAt = targetUser.loginAt ? new Date(targetUser.loginAt) : null;
   const now = new Date();
   const minutesSince = lastLoginAt ? Math.floor((now.getTime() - lastLoginAt.getTime()) / 60000) : null;
 
+  // If user has no authored messages in the relevant scope, return defaults (still apply online/lastOnline)
+  if (authoredMessages === 0) {
+    const fallback = this.buildDefaultAiProfileData();
+    if (minutesSince !== null) {
+      fallback.data.online = minutesSince <= 15;
+      fallback.data.lastOnline = this.formatLastOnline(lastLoginAt);
+    }
+    fallback.data.messagesCount = 0;
+    return fallback;
+  }
+
   const contextLine = isSelf
-    ? `- Источник: собственные сообщения пользователя; количество собранных сообщений: ${messagesCount}.`
-    : `- Совместные чаты: ${contextDialog ? 'есть' : 'нет'}; количество собранных сообщений: ${messagesCount}.`;
+    ? `- Источник: собственные сообщения пользователя; количество собранных сообщений: ${totalMessages}. (написано пользователем: ${authoredMessages})`
+    : `- Совместные чаты: ${contextDialog ? 'есть' : 'нет'}; всего сообщений в контексте: ${totalMessages}; сообщений от пользователя: ${authoredMessages}.`;
 
   const system = `
 Ты — аналитик профиля пользователя внутри мессенджера. Твоя задача — по истории переписок СГЕНЕРИРОВАТЬ строго JSON со сводной AI-картой профиля указанного пользователя.
@@ -560,7 +592,7 @@ ${contextLine}
     "aiAdvice": string,
     "aiSupportScore": number,      // 0..1
 
-    "messagesCount": number,       // целое >= 0 (можешь оценить по контексту)
+    "messagesCount": number,       // целое >= 0 (будет установлено системой по факту authoredMessages)
     "activityLevel": number,       // 0..1 (оценка активности)
     "badges": [{ "icon": string, "name": string }],
     "timeInApp": number[],         // 0..24, длина 0..7 (можешь оценить)
@@ -568,7 +600,7 @@ ${contextLine}
     "categories": string[],
     "aiAchievements": string[],
     "aiStyle": string,
-    "aiHowUserCanHelp": string     // чем этот пользователь может быть полезен другим: сильные стороны, экспертиза, примеры пользЫ
+    "aiHowUserCanHelp": string
   }
 }
 
@@ -589,21 +621,25 @@ ${contextLine}
     const parsed = this.tryParseJsonStrict(aiText) ?? this.buildDefaultAiProfileData();
     const normalized = this.normalizeAiProfile(parsed);
 
-    // Optionally enrich with some known numeric hints
-    normalized.data.messagesCount = normalized.data.messagesCount || messagesCount;
+    // Force messagesCount to authored count
+    normalized.data.messagesCount = authoredMessages;
 
     // online/lastOnline: compute strictly from loginAt with a 15-minute threshold
     if (minutesSince !== null) {
       normalized.data.online = minutesSince <= 15;
-      if (normalized.data.lastOnline === '') {
-        normalized.data.lastOnline = minutesSince === 0 ? 'just now' : `${minutesSince} minutes ago`;
-      }
+      normalized.data.lastOnline = this.formatLastOnline(lastLoginAt);
     }
 
     return normalized;
   } catch (error) {
     console.error('Error generating AI profile:', (error as any).response?.data || (error as any).message);
-    return this.buildDefaultAiProfileData();
+    const fallback = this.buildDefaultAiProfileData();
+    fallback.data.messagesCount = authoredMessages;
+    if (minutesSince !== null) {
+      fallback.data.online = minutesSince <= 15;
+      fallback.data.lastOnline = this.formatLastOnline(lastLoginAt);
+    }
+    return fallback;
   }
   }
 
